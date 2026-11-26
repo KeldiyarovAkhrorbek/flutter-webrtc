@@ -337,7 +337,8 @@ static void FlutterWebRTCApplyFieldTrials(void) {
 
 - (void)detachFromEngineForRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
   for (RTCPeerConnection* peerConnection in _peerConnections.allValues) {
-    for (RTCDataChannel* dataChannel in peerConnection.dataChannels) {
+    // `dataChannels` is a dictionary keyed by channel id: iterate its values, not its keys.
+    for (RTCDataChannel* dataChannel in peerConnection.dataChannels.allValues) {
       dataChannel.eventSink = nil;
     }
     peerConnection.eventSink = nil;
