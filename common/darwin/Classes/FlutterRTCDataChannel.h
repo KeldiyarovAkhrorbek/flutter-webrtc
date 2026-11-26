@@ -22,7 +22,8 @@
 - (void)dataChannelSend:(nonnull NSString*)peerConnectionId
           dataChannelId:(nonnull NSString*)dataChannelId
                    data:(nonnull NSString*)data
-                   type:(nonnull NSString*)type;
+                   type:(nonnull NSString*)type
+                 result:(nonnull FlutterResult)result;
 
 - (void)dataChannelGetBufferedAmount:(nonnull NSString*)peerConnectionId
           dataChannelId:(nonnull NSString*)dataChannelId 

@@ -856,8 +856,7 @@ static void FlutterWebRTCApplyFieldTrials(void) {
     NSString* type = argsMap[@"type"];
     id data = argsMap[@"data"];
 
-    [self dataChannelSend:peerConnectionId dataChannelId:dataChannelId data:data type:type];
-    result(nil);
+    [self dataChannelSend:peerConnectionId dataChannelId:dataChannelId data:data type:type result:result];
   }  else if ([@"dataChannelGetBufferedAmount" isEqualToString:call.method]) {
     NSDictionary* argsMap = call.arguments;
     NSString* peerConnectionId = argsMap[@"peerConnectionId"];

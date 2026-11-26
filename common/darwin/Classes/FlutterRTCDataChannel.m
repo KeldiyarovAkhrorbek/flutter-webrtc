@@ -120,25 +120,49 @@
   }
 }
 
+/// readyState, bufferedAmount and sendData wait on WebRTC's own threads. The platform thread is the UI thread: a
+/// stalled network thread there froze the app (watchdog kill). They run on this serial queue (order kept) and
+/// reply when done.
+static dispatch_queue_t FlutterRTCDataChannelQueue(void) {
+  static dispatch_queue_t queue;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    dispatch_queue_attr_t attr = dispatch_queue_attr_make_with_qos_class(
+        DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INITIATED, 0);
+    queue = dispatch_queue_create("flutter_webrtc.data_channel", attr);
+  });
+  return queue;
+}
+
 - (void)dataChannelGetBufferedAmount:(nonnull NSString*)peerConnectionId
           dataChannelId:(nonnull NSString*)dataChannelId 
                 result:(nonnull FlutterResult)result {
   RTCPeerConnection* peerConnection = self.peerConnections[peerConnectionId];
   RTCDataChannel* dataChannel = peerConnection.dataChannels[dataChannelId];
-  if(dataChannel == NULL || dataChannel.readyState != RTCDataChannelStateOpen) {
+  void (^fail)(void) = ^{
     result([FlutterError
           errorWithCode:[NSString stringWithFormat:@"%@Failed", @"dataChannelGetBufferedAmount"]
                 message:[NSString stringWithFormat:@"Error: dataChannel not found or not opened!"]
                 details:nil]);
-  } else {
-    result(@{@"bufferedAmount": @(dataChannel.bufferedAmount)});
+  };
+  if (dataChannel == NULL) {
+    fail();
+    return;
   }
+  dispatch_async(FlutterRTCDataChannelQueue(), ^{
+    if (dataChannel.readyState != RTCDataChannelStateOpen) {
+      fail();
+    } else {
+      result(@{@"bufferedAmount": @(dataChannel.bufferedAmount)});
+    }
+  });
 }
 
 - (void)dataChannelSend:(nonnull NSString*)peerConnectionId
           dataChannelId:(nonnull NSString*)dataChannelId
                    data:(id)data
-                   type:(NSString*)type {
+                   type:(NSString*)type
+                 result:(nonnull FlutterResult)result {
   RTCPeerConnection* peerConnection = self.peerConnections[peerConnectionId];
   RTCDataChannel* dataChannel = peerConnection.dataChannels[dataChannelId];
 
@@ -147,7 +171,14 @@
 
   RTCDataBuffer* buffer = [[RTCDataBuffer alloc] initWithData:bytes
                                                      isBinary:[type isEqualToString:@"binary"]];
-  [dataChannel sendData:buffer];
+  if (dataChannel == nil) {
+    result(nil);
+    return;
+  }
+  dispatch_async(FlutterRTCDataChannelQueue(), ^{
+    [dataChannel sendData:buffer];
+    result(nil);
+  });
 }
 
 - (NSString*)stringForDataChannelState:(RTCDataChannelState)state {
